@@ -93,18 +93,10 @@ DATABASES = {
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',},
 ]
 
 
@@ -151,8 +143,24 @@ DJOSER = {
         'user_create': 'api.serializers.users.UserCreateSerializer',
     },
     'PERMISSIONS': {
-        'user': ['rest_framework.permissions.IsAuthenticated'],
+        'user': ['rest_framework.permissions.AllowAny'],
         'user_list': ['rest_framework.permissions.AllowAny'],
+        'user_delete': [
+            'rest_framework.permissions.IsAdminUser'
+        ],
+        'set_password': [
+            'rest_framework.permissions.IsAuthenticated'
+        ],
+        'set_username': [
+            'rest_framework.permissions.IsAuthenticated'
+        ],
+        'token_create': [
+            'rest_framework.permissions.AllowAny'
+        ],
+        'token_destroy': [
+            'rest_framework.permissions.IsAuthenticated'
+        ],
+        'me': ['rest_framework.permissions.IsAuthenticated'],
     },
     'HIDE_USERS': False,
 }

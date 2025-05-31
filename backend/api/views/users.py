@@ -1,9 +1,10 @@
+"""Представления для работы с пользователями."""
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from djoser.views import UserViewSet as DjoserUserViewSet
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
 from api.serializers.users import (
@@ -17,9 +18,17 @@ User = get_user_model()
 
 
 class UserViewSet(DjoserUserViewSet):
+    """Представление для работы с пользователями."""
+    
     queryset = User.objects.all()
     serializer_class = UserSerializer
     pagination_class = CustomPagination
+    
+    def get_permissions(self):
+        """Определяет права доступа для различных действий."""
+        if self.action == 'retrieve' or self.action == 'list':
+            return [AllowAny()]
+        return super().get_permissions()
     
     @action(
         detail=False,
@@ -27,6 +36,7 @@ class UserViewSet(DjoserUserViewSet):
         permission_classes=[IsAuthenticated]
     )
     def me(self, request):
+        """Возвращает информацию о текущем пользователе."""
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
     
@@ -36,6 +46,7 @@ class UserViewSet(DjoserUserViewSet):
         permission_classes=[IsAuthenticated]
     )
     def set_password(self, request):
+        """Изменяет пароль текущего пользователя."""
         serializer = SetPasswordSerializer(
             data=request.data,
             context={'request': request}
@@ -49,22 +60,44 @@ class UserViewSet(DjoserUserViewSet):
     
     @action(
         detail=False,
-        methods=['post'],
+        methods=['put', 'delete'],
         permission_classes=[IsAuthenticated],
         url_path='me/avatar'
     )
-    def set_avatar(self, request):
-        serializer = SetAvatarSerializer(
-            instance=request.user,
-            data=request.data,
-            partial=True
-        )
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
+    def avatar(self, request):
+        """Обновляет или удаляет аватар пользователя."""
+        if request.method == 'PUT':
+            if 'avatar' not in request.data:
+                return Response(
+                    {'error': 'Отсутствует поле avatar в запросе.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            serializer = SetAvatarSerializer(
+                instance=request.user,
+                data=request.data,
+                partial=True,
+                context={'request': request}
+            )
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            
+            avatar_url = request.build_absolute_uri(request.user.avatar.url)
+            return Response(
+                {'avatar': avatar_url},
+                status=status.HTTP_200_OK
+            )
+        elif request.method == 'DELETE':
+            if request.user.avatar:
+                request.user.avatar.delete()
+                request.user.avatar = None
+                request.user.save()
+            
+            return Response(status=status.HTTP_204_NO_CONTENT)
         
         return Response(
-            {'avatar': request.build_absolute_uri(request.user.avatar.url)},
-            status=status.HTTP_200_OK
+            {'error': 'Метод не поддерживается.'},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED
         )
     
     @action(
@@ -73,6 +106,7 @@ class UserViewSet(DjoserUserViewSet):
         permission_classes=[IsAuthenticated]
     )
     def subscribe(self, request, id):
+        """Создает или удаляет подписку на автора."""
         author = get_object_or_404(User, id=id)
         
         if request.method == 'POST':
@@ -109,18 +143,19 @@ class UserViewSet(DjoserUserViewSet):
         
         subscription.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-    
+
     @action(
         detail=False,
         methods=['get'],
         permission_classes=[IsAuthenticated]
     )
     def subscriptions(self, request):
+        """Возвращает подписки текущего пользователя."""
         subscriptions = User.objects.filter(subscribers__user=request.user)
         paginated_queryset = self.paginate_queryset(subscriptions)
-        
+
         serializer = UserWithRecipesSerializer(
             paginated_queryset, many=True, context={'request': request}
         )
-        
-        return self.get_paginated_response(serializer.data) 
+
+        return self.get_paginated_response(serializer.data)
