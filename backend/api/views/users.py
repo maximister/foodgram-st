@@ -1,0 +1,126 @@
+from django.contrib.auth import get_user_model
+from django.shortcuts import get_object_or_404
+from djoser.views import UserViewSet as DjoserUserViewSet
+from rest_framework import status
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from api.serializers.users import (
+    UserSerializer, SetPasswordSerializer, SetAvatarSerializer,
+    UserWithRecipesSerializer
+)
+from api.pagination import CustomPagination
+from users.models import Subscription
+
+User = get_user_model()
+
+
+class UserViewSet(DjoserUserViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    pagination_class = CustomPagination
+    
+    @action(
+        detail=False,
+        methods=['get'],
+        permission_classes=[IsAuthenticated]
+    )
+    def me(self, request):
+        serializer = self.get_serializer(request.user)
+        return Response(serializer.data)
+    
+    @action(
+        detail=False,
+        methods=['post'],
+        permission_classes=[IsAuthenticated]
+    )
+    def set_password(self, request):
+        serializer = SetPasswordSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+        
+        request.user.set_password(serializer.validated_data['new_password'])
+        request.user.save()
+        
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    @action(
+        detail=False,
+        methods=['post'],
+        permission_classes=[IsAuthenticated],
+        url_path='me/avatar'
+    )
+    def set_avatar(self, request):
+        serializer = SetAvatarSerializer(
+            instance=request.user,
+            data=request.data,
+            partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        
+        return Response(
+            {'avatar': request.build_absolute_uri(request.user.avatar.url)},
+            status=status.HTTP_200_OK
+        )
+    
+    @action(
+        detail=True,
+        methods=['post', 'delete'],
+        permission_classes=[IsAuthenticated]
+    )
+    def subscribe(self, request, id):
+        author = get_object_or_404(User, id=id)
+        
+        if request.method == 'POST':
+            if request.user == author:
+                return Response(
+                    {'detail': 'Нельзя подписаться на самого себя.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            subscription, created = Subscription.objects.get_or_create(
+                user=request.user, author=author
+            )
+            
+            if not created:
+                return Response(
+                    {'detail': 'Вы уже подписаны на этого автора.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            serializer = UserWithRecipesSerializer(
+                author, context={'request': request}
+            )
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        subscription = Subscription.objects.filter(
+            user=request.user, author=author
+        )
+        
+        if not subscription.exists():
+            return Response(
+                {'detail': 'Вы не подписаны на этого автора.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        subscription.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    @action(
+        detail=False,
+        methods=['get'],
+        permission_classes=[IsAuthenticated]
+    )
+    def subscriptions(self, request):
+        subscriptions = User.objects.filter(subscribers__user=request.user)
+        paginated_queryset = self.paginate_queryset(subscriptions)
+        
+        serializer = UserWithRecipesSerializer(
+            paginated_queryset, many=True, context={'request': request}
+        )
+        
+        return self.get_paginated_response(serializer.data) 
