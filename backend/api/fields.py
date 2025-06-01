@@ -7,6 +7,9 @@ from drf_extra_fields.fields import Base64ImageField
 
 __all__ = ['Base64ImageField']
 
+# NOTE: вместо него используется Base64ImageField из drf_extra_fields, 
+# но в условиях было упомянуто, что было бы неплохо создать для этих целей свой класс,
+#  поэтому оставил
 
 class Base64InternalImageField(serializers.ImageField):
     def to_internal_value(self, data):
