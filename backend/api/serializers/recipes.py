@@ -56,7 +56,7 @@ class RecipeListSerializer(serializers.ModelSerializer):
 
     author = UserSerializer(read_only=True)
     ingredients = IngredientInRecipeSerializer(
-        many=True, 
+        many=True,
         read_only=True,
         source='recipe_ingredients'
     )

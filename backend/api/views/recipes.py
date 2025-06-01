@@ -86,7 +86,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         """Формирует короткую ссылку на рецепт."""
         recipe = get_object_or_404(Recipe, id=pk)
         base_url = request.build_absolute_uri('/').rstrip('/')
-        short_link = f"{base_url}/recipes/{recipe.id}"
+        short_link = f'{base_url}/recipes/{recipe.id}'
         return Response({'short-link': short_link})
 
     @action(
@@ -128,7 +128,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             'ingredient__measurement_unit'
         ).annotate(total_amount=Sum('amount'))
 
-        shopping_list = "Список покупок:\n\n"
+        shopping_list = 'Список покупок:\n\n'
         for item in ingredients:
             shopping_list += (
                 f"{item['ingredient__name']} "
