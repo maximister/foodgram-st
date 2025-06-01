@@ -19,17 +19,17 @@ User = get_user_model()
 
 class UserViewSet(DjoserUserViewSet):
     """Представление для работы с пользователями."""
-    
+
     queryset = User.objects.all()
     serializer_class = UserSerializer
     pagination_class = CustomPagination
-    
+
     def get_permissions(self):
         """Определяет права доступа для различных действий."""
         if self.action == 'retrieve' or self.action == 'list':
             return [AllowAny()]
         return super().get_permissions()
-    
+
     @action(
         detail=False,
         methods=['get'],
@@ -39,7 +39,7 @@ class UserViewSet(DjoserUserViewSet):
         """Возвращает информацию о текущем пользователе."""
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
-    
+
     @action(
         detail=False,
         methods=['post'],
@@ -52,12 +52,12 @@ class UserViewSet(DjoserUserViewSet):
             context={'request': request}
         )
         serializer.is_valid(raise_exception=True)
-        
+
         request.user.set_password(serializer.validated_data['new_password'])
         request.user.save()
-        
+
         return Response(status=status.HTTP_204_NO_CONTENT)
-    
+
     @action(
         detail=False,
         methods=['put', 'delete'],
@@ -72,7 +72,7 @@ class UserViewSet(DjoserUserViewSet):
                     {'error': 'Отсутствует поле avatar в запросе.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-                
+   
             serializer = SetAvatarSerializer(
                 instance=request.user,
                 data=request.data,
@@ -81,7 +81,7 @@ class UserViewSet(DjoserUserViewSet):
             )
             serializer.is_valid(raise_exception=True)
             serializer.save()
-            
+
             avatar_url = request.build_absolute_uri(request.user.avatar.url)
             return Response(
                 {'avatar': avatar_url},
@@ -92,14 +92,14 @@ class UserViewSet(DjoserUserViewSet):
                 request.user.avatar.delete()
                 request.user.avatar = None
                 request.user.save()
-            
+
             return Response(status=status.HTTP_204_NO_CONTENT)
-        
+
         return Response(
             {'error': 'Метод не поддерживается.'},
             status=status.HTTP_405_METHOD_NOT_ALLOWED
         )
-    
+
     @action(
         detail=True,
         methods=['post', 'delete'],
@@ -108,39 +108,39 @@ class UserViewSet(DjoserUserViewSet):
     def subscribe(self, request, id):
         """Создает или удаляет подписку на автора."""
         author = get_object_or_404(User, id=id)
-        
+
         if request.method == 'POST':
             if request.user == author:
                 return Response(
                     {'detail': 'Нельзя подписаться на самого себя.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
+
             subscription, created = Subscription.objects.get_or_create(
                 user=request.user, author=author
             )
-            
+
             if not created:
                 return Response(
                     {'detail': 'Вы уже подписаны на этого автора.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
+
             serializer = UserWithRecipesSerializer(
                 author, context={'request': request}
             )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        
+
         subscription = Subscription.objects.filter(
             user=request.user, author=author
         )
-        
+
         if not subscription.exists():
             return Response(
                 {'detail': 'Вы не подписаны на этого автора.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         subscription.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 

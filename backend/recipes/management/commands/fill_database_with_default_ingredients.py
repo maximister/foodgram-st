@@ -1,4 +1,4 @@
-"""Наполнение базы ингредиентов дефолтными значениями из csv-файла."""
+"""Скрипт для наполнения базы ингредиентов дефолтными значениями."""
 import csv
 import os
 
@@ -9,18 +9,22 @@ from recipes.models import Ingredient
 
 
 class Command(BaseCommand):
+    """Команда для наполнения базы ингредиентов дефолтными значениями \
+        из csv-файла."""
+
     help = 'Загрузить список дефолтных ингредиентов из CSV файла'
 
     def add_arguments(self, parser):
+        """Парсинг аргументов из командной строки."""
         parser.add_argument(
             '--path',
             type=str,
-            help='Путь к CSV файлум ингредиентами относительно /foodgram-st',
+            help='Путь к CSV файлу c ингредиентами',
             required=False
         )
 
     def handle(self, *args, **options):
-        """Обрабатывает команду импорта ингредиентов."""
+        """Перекладывание csv в бд."""
         csv_path = options.get('path')
 
         if csv_path:
@@ -53,10 +57,10 @@ class Command(BaseCommand):
                         )
                         ingredients_count += 1
 
-            success_msg = (
+            success_message = (
                 f'Успешно загружено {ingredients_count} ингредиентов '
                 f'из файла {csv_file}'
             )
-            self.stdout.write(self.style.SUCCESS(success_msg))
+            self.stdout.write(self.style.SUCCESS(success_message))
         except Exception as e:
             raise CommandError(f'Ошибка при чтении файла: {e}')

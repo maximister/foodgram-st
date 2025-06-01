@@ -1,3 +1,4 @@
+"""Модели приложения recipes."""
 from django.db import models
 from django.core.validators import MinValueValidator
 
@@ -21,6 +22,8 @@ class Ingredient(models.Model):
     )
 
     class Meta:
+        """Метаданные модели ингредиента."""
+
         verbose_name = 'Ингредиент'
         verbose_name_plural = 'Ингредиенты'
         ordering = ['name']
@@ -32,6 +35,7 @@ class Ingredient(models.Model):
         ]
 
     def __str__(self):
+        """Строковое представление модели ингредиента."""
         return f'{self.name}, {self.measurement_unit}'
 
 
@@ -73,11 +77,14 @@ class Recipe(models.Model):
     )
 
     class Meta:
+        """Метаданные модели рецепта."""
+
         verbose_name = 'Рецепт'
         verbose_name_plural = 'Рецепты'
         ordering = ['-pub_date']
 
     def __str__(self):
+        """Строковое представление модели рецепта."""
         return self.name
 
 
@@ -104,6 +111,8 @@ class IngredientInRecipe(models.Model):
     )
 
     class Meta:
+        """Метаданные модели ингредиента в рецепте."""
+
         verbose_name = 'Ингредиент в рецепте'
         verbose_name_plural = 'Ингредиенты в рецептах'
         constraints = [
@@ -114,6 +123,7 @@ class IngredientInRecipe(models.Model):
         ]
 
     def __str__(self):
+        """Строковое представление модели ингредиента в рецепте."""
         return (f'{self.ingredient.name} '
                 f'({self.amount} {self.ingredient.measurement_unit})')
 
@@ -135,6 +145,8 @@ class Favorite(models.Model):
     )
 
     class Meta:
+        """Метаданные модели избранного."""
+
         verbose_name = 'Избранное'
         verbose_name_plural = 'Избранное'
         constraints = [
@@ -145,6 +157,7 @@ class Favorite(models.Model):
         ]
 
     def __str__(self):
+        """Строковое представление модели избранного."""
         return f'{self.user.username} добавил {self.recipe.name} в избранное'
 
 
@@ -165,6 +178,8 @@ class ShoppingCart(models.Model):
     )
 
     class Meta:
+        """Метаданные модели списка покупок."""
+
         verbose_name = 'Список покупок'
         verbose_name_plural = 'Списки покупок'
         constraints = [
@@ -175,5 +190,6 @@ class ShoppingCart(models.Model):
         ]
 
     def __str__(self):
+        """Строковое представление модели списка покупок."""
         return (f'{self.user.username} добавил '
                 f'{self.recipe.name} в список покупок')
