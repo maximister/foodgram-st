@@ -9,6 +9,7 @@ import uuid
 from django.core.files.base import ContentFile
 
 from users.models import Subscription
+from recipes.models import Recipe
 
 User = get_user_model()
 
@@ -126,13 +127,14 @@ class SetAvatarSerializer(serializers.ModelSerializer):
         return value
 
 
-class RecipeMinifiedSerializer(serializers.Serializer):
+class RecipeMinifiedSerializer(serializers.ModelSerializer):
     """Сериализатор для минимальной информации о рецепте."""
 
-    id = serializers.IntegerField(read_only=True)
-    name = serializers.CharField(read_only=True)
-    image = serializers.ImageField(read_only=True)
-    cooking_time = serializers.IntegerField(read_only=True)
+    class Meta:
+        """Метаданные сериализатора."""
+
+        model = Recipe
+        fields = ('id', 'name', 'image', 'cooking_time')
 
 
 class UserWithRecipesSerializer(UserSerializer):
@@ -154,10 +156,7 @@ class UserWithRecipesSerializer(UserSerializer):
         request = self.context.get('request')
         recipes_limit = request.query_params.get('recipes_limit')
 
-        from django.db.models import Model
-        recipe_model = type('Recipe', (Model,), {})
-
-        recipes = recipe_model.objects.filter(author=obj)
+        recipes = Recipe.objects.filter(author=obj)
         if recipes_limit:
             try:
                 recipes = recipes[:int(recipes_limit)]
@@ -168,7 +167,4 @@ class UserWithRecipesSerializer(UserSerializer):
 
     def get_recipes_count(self, obj):
         """Возвращает количество рецептов пользователя."""
-        from django.db.models import Model
-        recipe_model = type('Recipe', (Model,), {})
-
-        return recipe_model.objects.filter(author=obj).count() 
+        return Recipe.objects.filter(author=obj).count() 
