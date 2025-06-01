@@ -4,12 +4,10 @@ from rest_framework import serializers
 from djoser.serializers import (
     UserCreateSerializer as DjoserUserCreateSerializer
 )
-import base64
-import uuid
-from django.core.files.base import ContentFile
 
 from users.models import Subscription
 from recipes.models import Recipe
+from api.fields import Base64ImageField
 
 User = get_user_model()
 
@@ -89,24 +87,6 @@ class SetPasswordSerializer(serializers.Serializer):
         return value
 
 
-class Base64ImageField(serializers.ImageField):
-    """Поле для обработки изображений в формате base64."""
-
-    def to_internal_value(self, data):
-        """Преобразует base64-строку в файл."""
-        if isinstance(data, str) and data.startswith('data:image'):
-            format, imgstr = data.split(';base64,')
-            ext = format.split('/')[-1]
-
-            file_name = str(uuid.uuid4())
-            data = ContentFile(
-                base64.b64decode(imgstr),
-                name=f'{file_name}.{ext}'
-            )
-
-        return super().to_internal_value(data)
-
-
 class SetAvatarSerializer(serializers.ModelSerializer):
     """Сериализатор для обновления аватара пользователя."""
 
@@ -127,8 +107,8 @@ class SetAvatarSerializer(serializers.ModelSerializer):
         return value
 
 
-class RecipeMinifiedSerializer(serializers.ModelSerializer):
-    """Сериализатор для минимальной информации о рецепте."""
+class RecipeShortInfoSerializer(serializers.ModelSerializer):
+    """Сериализатор для краткой информации о рецепте."""
 
     class Meta:
         """Метаданные сериализатора."""
@@ -163,7 +143,7 @@ class UserWithRecipesSerializer(UserSerializer):
             except ValueError:
                 pass
 
-        return RecipeMinifiedSerializer(recipes, many=True).data
+        return RecipeShortInfoSerializer(recipes, many=True).data
 
     def get_recipes_count(self, obj):
         """Возвращает количество рецептов пользователя."""

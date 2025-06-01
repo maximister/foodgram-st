@@ -1,14 +1,13 @@
-import base64
-from django.core.files.base import ContentFile
-from rest_framework import serializers
+"""Сериализаторы для API рецептов."""
 from django.db import transaction
-import uuid
+from rest_framework import serializers
 
 from recipes.models import (
     Ingredient, Recipe, IngredientInRecipe, Favorite, ShoppingCart
 )
 from recipes.constants import MIN_COOKING_TIME
 from api.serializers.users import UserSerializer
+from api.fields import Base64ImageField
 
 
 class IngredientSerializer(serializers.ModelSerializer):
@@ -31,18 +30,6 @@ class IngredientInRecipeSerializer(serializers.ModelSerializer):
     class Meta:
         model = IngredientInRecipe
         fields = ('id', 'name', 'measurement_unit', 'amount')
-
-
-class Base64ImageField(serializers.ImageField):
-    """Поле для работы с изображениями в формате base64."""
-
-    def to_internal_value(self, data):
-        if isinstance(data, str) and data.startswith('data:image'):
-            format, imgstr = data.split(';base64,')
-            ext = format.split('/')[-1]
-            filename = f"{uuid.uuid4()}.{ext}"
-            data = ContentFile(base64.b64decode(imgstr), name=filename)
-        return super().to_internal_value(data)
 
 
 class IngredientAmountSerializer(serializers.ModelSerializer):
@@ -100,7 +87,7 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
     """Сериализатор для создания и обновления рецепта."""
 
     ingredients = IngredientAmountSerializer(many=True)
-    image = Base64ImageField()
+    image = Base64ImageField(required=True)
     author = UserSerializer(read_only=True)
 
     class Meta:
@@ -118,6 +105,14 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
                 {'ingredients': 'Это поле обязательно.'}
             )
         return data
+
+    def validate_image(self, value):
+        """Проверяет изображение."""
+        if not value:
+            raise serializers.ValidationError(
+                'Изображение обязательно.'
+            )
+        return value
 
     def validate_ingredients(self, value):
         """Проверяет ингредиенты."""
@@ -179,8 +174,8 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
         ).data
 
 
-class RecipeMinifiedSerializer(serializers.ModelSerializer):
-    """Сериализатор для минимальной информации о рецепте."""
+class RecipeShortInfoSerializer(serializers.ModelSerializer):
+    """Сериализатор для краткой информации о рецепте."""
 
     class Meta:
         model = Recipe
@@ -206,7 +201,7 @@ class FavoriteSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         """Преобразует данные модели в формат ответа."""
-        return RecipeMinifiedSerializer(
+        return RecipeShortInfoSerializer(
             instance.recipe, context=self.context
         ).data
 
@@ -230,6 +225,6 @@ class ShoppingCartSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         """Преобразует данные модели в формат ответа."""
-        return RecipeMinifiedSerializer(
+        return RecipeShortInfoSerializer(
             instance.recipe, context=self.context
         ).data

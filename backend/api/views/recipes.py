@@ -50,6 +50,32 @@ class RecipeViewSet(viewsets.ModelViewSet):
         """Создает рецепт с текущим пользователем в качестве автора."""
         serializer.save(author=self.request.user)
 
+    def _handle_recipe_relation(
+        self, request, pk, model, serializer_class, error_message
+    ):
+        """Обрабатывает добавление/удаление рецепта из списка."""
+        recipe = get_object_or_404(Recipe, id=pk)
+        user = request.user
+
+        if request.method == 'POST':
+            serializer = serializer_class(
+                data={'user': user.id, 'recipe': recipe.id},
+                context={'request': request}
+            )
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        if not model.objects.filter(user=user, recipe=recipe).exists():
+            return Response(
+                {'errors': error_message},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        relation = model.objects.get(user=user, recipe=recipe)
+        relation.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(
         detail=True,
         methods=['get'],
@@ -70,27 +96,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
     )
     def favorite(self, request, pk=None):
         """Добавляет/удаляет рецепт в избранное."""
-        recipe = get_object_or_404(Recipe, id=pk)
-        user = request.user
-
-        if request.method == 'POST':
-            serializer = FavoriteSerializer(
-                data={'user': user.id, 'recipe': recipe.id},
-                context={'request': request}
-            )
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        if not Favorite.objects.filter(user=user, recipe=recipe).exists():
-            return Response(
-                {'errors': 'Рецепт не найден в избранном'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-            
-        favorite = Favorite.objects.get(user=user, recipe=recipe)
-        favorite.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return self._handle_recipe_relation(
+            request, pk, Favorite, FavoriteSerializer,
+            'Рецепт не найден в избранном'
+        )
 
     @action(
         detail=True,
@@ -99,27 +108,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
     )
     def shopping_cart(self, request, pk=None):
         """Добавляет/удаляет рецепт в список покупок."""
-        recipe = get_object_or_404(Recipe, id=pk)
-        user = request.user
-
-        if request.method == 'POST':
-            serializer = ShoppingCartSerializer(
-                data={'user': user.id, 'recipe': recipe.id},
-                context={'request': request}
-            )
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        if not ShoppingCart.objects.filter(user=user, recipe=recipe).exists():
-            return Response(
-                {'errors': 'Рецепт не найден в списке покупок'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-            
-        shopping_cart = ShoppingCart.objects.get(user=user, recipe=recipe)
-        shopping_cart.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return self._handle_recipe_relation(
+            request, pk, ShoppingCart, ShoppingCartSerializer,
+            'Рецепт не найден в списке покупок'
+        )
 
     @action(
         detail=False,
