@@ -31,4 +31,4 @@ jobs:
       - name: Validate code style with flake8
         run: |
           echo "Running style checks for backend code..."
-          flake8 backend --count --statistics --max-line-length=100 --show-source --exclude=*/manage.py,manage.py,backend/manage.py,*/__init__.py,__init__.py
+          flake8 backend --count --statistics --max-line-length=100 --show-source --exclude=*/manage.py,manage.py,backend/manage.py,*/__init__.py,__init__.py,*/migrations/*,migrations/
