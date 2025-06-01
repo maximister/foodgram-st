@@ -1,3 +1,4 @@
+"""Константы для пагинации."""
 from django.conf import settings
 
 PAGE_SIZE = getattr(settings, 'PAGE_SIZE', 10)

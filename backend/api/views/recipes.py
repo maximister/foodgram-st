@@ -71,7 +71,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 {'errors': error_message},
                 status=status.HTTP_400_BAD_REQUEST
             )
-            
+
         relation = model.objects.get(user=user, recipe=recipe)
         relation.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -83,10 +83,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
         url_path='get-link'
     )
     def get_link(self, request, pk=None):
-        """Получает короткую ссылку на рецепт."""
+        """Формирует короткую ссылку на рецепт."""
         recipe = get_object_or_404(Recipe, id=pk)
-        base_url = request.build_absolute_uri('/')[:-1]
-        short_link = f"{base_url}/s/{recipe.id}"
+        base_url = request.build_absolute_uri('/').rstrip('/')
+        short_link = f"{base_url}/recipes/{recipe.id}"
         return Response({'short-link': short_link})
 
     @action(

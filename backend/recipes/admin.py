@@ -1,3 +1,4 @@
+"""Админ-панель для приложения recipes."""
 from django.contrib import admin
 
 from recipes.models import (
@@ -7,8 +8,8 @@ from recipes.constants import MIN_INGREDIENTS_IN_RECIPE, EXTRA_INGREDIENT_FORMS
 
 
 class IngredientInRecipeInline(admin.TabularInline):
-    """Инлайн-админка для модели ингредиентов в рецепте."""
-    
+    """Инлайн для модели ингредиентов в рецепте."""
+
     model = IngredientInRecipe
     min_num = MIN_INGREDIENTS_IN_RECIPE
     extra = EXTRA_INGREDIENT_FORMS
@@ -17,7 +18,7 @@ class IngredientInRecipeInline(admin.TabularInline):
 @admin.register(Ingredient)
 class IngredientAdmin(admin.ModelAdmin):
     """Админ-панель для модели ингредиентов."""
-    
+
     list_display = ('id', 'name', 'measurement_unit')
     search_fields = ('name',)
     list_filter = ('measurement_unit',)
@@ -26,24 +27,24 @@ class IngredientAdmin(admin.ModelAdmin):
 @admin.register(Recipe)
 class RecipeAdmin(admin.ModelAdmin):
     """Админ-панель для модели рецептов."""
-    
+
     list_display = ('id', 'name', 'author', 'cooking_time', 'favorites_count')
     search_fields = ('name', 'author__username')
     list_filter = ('author',)
     inlines = (IngredientInRecipeInline,)
     readonly_fields = ('favorites_count',)
-    
+
     def favorites_count(self, obj):
         """Возвращает количество добавлений рецепта в избранное."""
         return obj.favorited_by.count()
-    
+
     favorites_count.short_description = 'В избранном'
 
 
 @admin.register(Favorite)
 class FavoriteAdmin(admin.ModelAdmin):
     """Админ-панель для модели избранного."""
-    
+
     list_display = ('id', 'user', 'recipe')
     search_fields = ('user__username', 'recipe__name')
     list_filter = ('user',)
@@ -52,7 +53,7 @@ class FavoriteAdmin(admin.ModelAdmin):
 @admin.register(ShoppingCart)
 class ShoppingCartAdmin(admin.ModelAdmin):
     """Админ-панель для модели списка покупок."""
-    
+
     list_display = ('id', 'user', 'recipe')
     search_fields = ('user__username', 'recipe__name')
     list_filter = ('user',)
