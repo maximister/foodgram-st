@@ -4,11 +4,10 @@ from rest_framework import serializers
 from djoser.serializers import (
     UserCreateSerializer as DjoserUserCreateSerializer
 )
-import base64
-import uuid
-from django.core.files.base import ContentFile
 
 from users.models import Subscription
+from recipes.models import Recipe
+from api.fields import Base64ImageField
 
 User = get_user_model()
 
@@ -88,24 +87,6 @@ class SetPasswordSerializer(serializers.Serializer):
         return value
 
 
-class Base64ImageField(serializers.ImageField):
-    """Поле для обработки изображений в формате base64."""
-
-    def to_internal_value(self, data):
-        """Преобразует base64-строку в файл."""
-        if isinstance(data, str) and data.startswith('data:image'):
-            format, imgstr = data.split(';base64,')
-            ext = format.split('/')[-1]
-
-            file_name = str(uuid.uuid4())
-            data = ContentFile(
-                base64.b64decode(imgstr),
-                name=f'{file_name}.{ext}'
-            )
-
-        return super().to_internal_value(data)
-
-
 class SetAvatarSerializer(serializers.ModelSerializer):
     """Сериализатор для обновления аватара пользователя."""
 
@@ -126,13 +107,14 @@ class SetAvatarSerializer(serializers.ModelSerializer):
         return value
 
 
-class RecipeMinifiedSerializer(serializers.Serializer):
-    """Сериализатор для минимальной информации о рецепте."""
+class RecipeShortInfoSerializer(serializers.ModelSerializer):
+    """Сериализатор для краткой информации о рецепте."""
 
-    id = serializers.IntegerField(read_only=True)
-    name = serializers.CharField(read_only=True)
-    image = serializers.ImageField(read_only=True)
-    cooking_time = serializers.IntegerField(read_only=True)
+    class Meta:
+        """Метаданные сериализатора."""
+
+        model = Recipe
+        fields = ('id', 'name', 'image', 'cooking_time')
 
 
 class UserWithRecipesSerializer(UserSerializer):
@@ -154,21 +136,15 @@ class UserWithRecipesSerializer(UserSerializer):
         request = self.context.get('request')
         recipes_limit = request.query_params.get('recipes_limit')
 
-        from django.db.models import Model
-        recipe_model = type('Recipe', (Model,), {})
-
-        recipes = recipe_model.objects.filter(author=obj)
+        recipes = Recipe.objects.filter(author=obj)
         if recipes_limit:
             try:
                 recipes = recipes[:int(recipes_limit)]
             except ValueError:
                 pass
 
-        return RecipeMinifiedSerializer(recipes, many=True).data
+        return RecipeShortInfoSerializer(recipes, many=True).data
 
     def get_recipes_count(self, obj):
         """Возвращает количество рецептов пользователя."""
-        from django.db.models import Model
-        recipe_model = type('Recipe', (Model,), {})
-
-        return recipe_model.objects.filter(author=obj).count() 
+        return Recipe.objects.filter(author=obj).count() 

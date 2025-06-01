@@ -1,0 +1,23 @@
+from rest_framework import permissions
+
+
+class IsAuthorOrReadOnly(permissions.BasePermission):
+    """Разрешение для авторов и чтения.
+
+    Разрешает доступ на чтение всем пользователям,
+    а доступ на изменение и удаление только автору объекта.
+    """
+
+    def has_permission(self, request, view):
+        """Проверяет общие разрешения для представления."""
+        return (
+            request.method in permissions.SAFE_METHODS
+            or request.user.is_authenticated
+        )
+
+    def has_object_permission(self, request, view, obj):
+        """Проверяет разрешения для конкретного объекта."""
+        return (
+            request.method in permissions.SAFE_METHODS
+            or obj.author == request.user
+        )
