@@ -72,7 +72,7 @@ class UserViewSet(DjoserUserViewSet):
                     {'error': 'Отсутствует поле avatar в запросе.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-   
+
             serializer = SetAvatarSerializer(
                 instance=request.user,
                 data=request.data,
