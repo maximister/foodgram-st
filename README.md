@@ -69,7 +69,3 @@ docker-compose up -d
 - Панель администратора:
     - локально [http://localhost/admin/](http://localhost/admin/)
     - удаленно [http://51.250.19.165/admin/](http://51.250.19.165/admin/)
-- API Endpoints:
-    - локально [http://localhost/api/](http://localhost/api/)
-    - удаленно [http://51.250.19.165/api/](http://51.250.19.165/api/)
-
