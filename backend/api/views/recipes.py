@@ -13,7 +13,7 @@ from recipes.models import (
 )
 from api.serializers.recipes import (
     IngredientSerializer, RecipeListSerializer,
-    RecipeCreateUpdateSerializer, FavoriteSerializer, ShoppingCartSerializer
+    RecipeCreateUpdateSerializer, RecipeShortInfoSerializer
 )
 from api.permissions import IsAuthorOrReadOnly
 from api.pagination import CustomPagination
@@ -51,28 +51,34 @@ class RecipeViewSet(viewsets.ModelViewSet):
         serializer.save(author=self.request.user)
 
     def _handle_recipe_relation(
-        self, request, pk, model, serializer_class, error_message
+        self, request, pk, model, error_message
     ):
         """Обрабатывает добавление/удаление рецепта из списка."""
         recipe = get_object_or_404(Recipe, id=pk)
         user = request.user
 
         if request.method == 'POST':
-            serializer = serializer_class(
-                data={'user': user.id, 'recipe': recipe.id},
-                context={'request': request}
+            if model.objects.filter(user=user, recipe=recipe).exists():
+                error_msg = f'Рецепт уже добавлен в {model.__name__.lower()}'
+                return Response(
+                    {'errors': error_msg},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            relation = model.objects.create(user=user, recipe=recipe)
+
+            serializer = RecipeShortInfoSerializer(
+                recipe, context={'request': request}
             )
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-        if not model.objects.filter(user=user, recipe=recipe).exists():
+        relation = model.objects.filter(user=user, recipe=recipe)
+        if not relation.exists():
             return Response(
                 {'errors': error_message},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        relation = model.objects.get(user=user, recipe=recipe)
         relation.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -96,9 +102,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
     )
     def favorite(self, request, pk=None):
         """Добавляет/удаляет рецепт в избранное."""
+        error_message = 'Рецепт не найден в избранном'
         return self._handle_recipe_relation(
-            request, pk, Favorite, FavoriteSerializer,
-            'Рецепт не найден в избранном'
+            request, pk, Favorite, error_message
         )
 
     @action(
@@ -108,9 +114,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
     )
     def shopping_cart(self, request, pk=None):
         """Добавляет/удаляет рецепт в список покупок."""
+        error_message = 'Рецепт не найден в списке покупок'
         return self._handle_recipe_relation(
-            request, pk, ShoppingCart, ShoppingCartSerializer,
-            'Рецепт не найден в списке покупок'
+            request, pk, ShoppingCart, error_message
         )
 
     @action(
