@@ -131,8 +131,8 @@ class IngredientInRecipe(models.Model):
                 f'({self.amount} {self.ingredient.measurement_unit})')
 
 
-class Favorite(models.Model):
-    """Модель избранного."""
+class UserRecipeRelation(models.Model):
+    """Базовый абстрактный класс для связи пользователя и рецепта."""
 
     user = models.ForeignKey(
         User,
@@ -143,56 +143,43 @@ class Favorite(models.Model):
         Recipe,
         on_delete=models.CASCADE,
         verbose_name='Рецепт',
-        related_name='favorited'
     )
 
     class Meta:
+        """Метаданные абстрактного класса."""
+        
+        abstract = True
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'recipe'],
+                name='%(app_label)s_%(class)s_unique'
+            )
+        ]
+    
+    def __str__(self):
+        """Строковое представление связи пользователя и рецепта."""
+        relation_type = self._meta.verbose_name.lower()
+        return (f'{self.user.username} добавил '
+                f'{self.recipe.name} в {relation_type}')
+
+
+class Favorite(UserRecipeRelation):
+    """Модель избранного."""
+
+    class Meta(UserRecipeRelation.Meta):
         """Метаданные модели избранного."""
 
         verbose_name = 'Избранное'
         verbose_name_plural = 'Избранное'
-        constraints = [
-            models.UniqueConstraint(
-                fields=['user', 'recipe'],
-                name='unique_favorite'
-            )
-        ]
         default_related_name = 'favorited'
 
-    def __str__(self):
-        """Строковое представление модели избранного."""
-        return f'{self.user.username} добавил {self.recipe.name} в избранное'
 
-
-class ShoppingCart(models.Model):
+class ShoppingCart(UserRecipeRelation):
     """Модель списка покупок."""
 
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        verbose_name='Пользователь',
-    )
-    recipe = models.ForeignKey(
-        Recipe,
-        on_delete=models.CASCADE,
-        verbose_name='Рецепт',
-        related_name='in_shopping_carts'
-    )
-
-    class Meta:
+    class Meta(UserRecipeRelation.Meta):
         """Метаданные модели списка покупок."""
 
         verbose_name = 'Список покупок'
         verbose_name_plural = 'Списки покупок'
-        constraints = [
-            models.UniqueConstraint(
-                fields=['user', 'recipe'],
-                name='unique_shopping_cart'
-            )
-        ]
-        default_related_name = 'shopping_cart'
-
-    def __str__(self):
-        """Строковое представление модели списка покупок."""
-        return (f'{self.user.username} добавил '
-                f'{self.recipe.name} в список покупок')
+        default_related_name = 'in_shopping_carts'
