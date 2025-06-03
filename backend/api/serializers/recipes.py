@@ -59,7 +59,7 @@ class RecipeListSerializer(serializers.ModelSerializer):
     ingredients = IngredientInRecipeSerializer(
         many=True,
         read_only=True,
-        source='recipe_ingredients'
+        source='ingredients_in_recipes'
     )
     is_favorited = serializers.SerializerMethodField()
     is_in_shopping_cart = serializers.SerializerMethodField()
@@ -165,7 +165,7 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         """Обновляет рецепт с ингредиентами."""
         ingredients_data = validated_data.pop('ingredients')
-        instance.recipe_ingredients.all().delete()
+        instance.ingredients_in_recipes.all().delete()
         self.create_ingredients(instance, ingredients_data)
 
         return super().update(instance, validated_data)

@@ -1,11 +1,11 @@
 """Модели приложения recipes."""
 from django.db import models
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 from users.models import User
 from recipes.constants import (
-    MIN_COOKING_TIME, MIN_INGREDIENT_AMOUNT, MAX_NAME_LENGTH,
-    COOKING_TIME_ERROR, INGREDIENT_AMOUNT_ERROR
+    MIN_COOKING_TIME, MAX_COOKING_TIME, MIN_INGREDIENT_AMOUNT, MAX_NAME_LENGTH,
+    COOKING_TIME_ERROR, MAX_COOKING_TIME_ERROR, INGREDIENT_AMOUNT_ERROR
 )
 
 
@@ -26,7 +26,7 @@ class Ingredient(models.Model):
 
         verbose_name = 'Ингредиент'
         verbose_name_plural = 'Ингредиенты'
-        ordering = ['name']
+        ordering = ('name',)
         constraints = [
             models.UniqueConstraint(
                 fields=['name', 'measurement_unit'],
@@ -49,7 +49,6 @@ class Recipe(models.Model):
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='recipes',
         verbose_name='Автор',
     )
     text = models.TextField(
@@ -59,16 +58,20 @@ class Recipe(models.Model):
         'Изображение',
         upload_to='recipes/',
     )
-    cooking_time = models.PositiveSmallIntegerField(
+    cooking_time = models.PositiveIntegerField(
         'Время приготовления (в минутах)',
-        validators=[MinValueValidator(
-            MIN_COOKING_TIME, message=COOKING_TIME_ERROR
-        )]
+        validators=[
+            MinValueValidator(
+                MIN_COOKING_TIME, message=COOKING_TIME_ERROR
+            ),
+            MaxValueValidator(
+                MAX_COOKING_TIME, message=MAX_COOKING_TIME_ERROR
+            )
+        ]
     )
     ingredients = models.ManyToManyField(
         Ingredient,
         through='IngredientInRecipe',
-        related_name='recipes',
         verbose_name='Ингредиенты',
     )
     pub_date = models.DateTimeField(
@@ -81,7 +84,8 @@ class Recipe(models.Model):
 
         verbose_name = 'Рецепт'
         verbose_name_plural = 'Рецепты'
-        ordering = ['-pub_date', 'name']
+        ordering = ('-pub_date', 'name')
+        default_related_name = 'recipes'
 
     def __str__(self):
         """Строковое представление модели рецепта."""
@@ -94,13 +98,12 @@ class IngredientInRecipe(models.Model):
     recipe = models.ForeignKey(
         Recipe,
         on_delete=models.CASCADE,
-        related_name='recipe_ingredients',
         verbose_name='Рецепт',
+        related_name='ingredients_in_recipes'
     )
     ingredient = models.ForeignKey(
         Ingredient,
         on_delete=models.CASCADE,
-        related_name='ingredient_recipes',
         verbose_name='Ингредиент',
     )
     amount = models.PositiveSmallIntegerField(
@@ -134,14 +137,13 @@ class Favorite(models.Model):
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='favorites',
         verbose_name='Пользователь',
     )
     recipe = models.ForeignKey(
         Recipe,
         on_delete=models.CASCADE,
-        related_name='favorited_by',
         verbose_name='Рецепт',
+        related_name='favorited'
     )
 
     class Meta:
@@ -155,6 +157,7 @@ class Favorite(models.Model):
                 name='unique_favorite'
             )
         ]
+        default_related_name = 'favorited'
 
     def __str__(self):
         """Строковое представление модели избранного."""
@@ -167,14 +170,13 @@ class ShoppingCart(models.Model):
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='shopping_cart',
         verbose_name='Пользователь',
     )
     recipe = models.ForeignKey(
         Recipe,
         on_delete=models.CASCADE,
-        related_name='in_shopping_carts',
         verbose_name='Рецепт',
+        related_name='in_shopping_carts'
     )
 
     class Meta:
@@ -188,6 +190,7 @@ class ShoppingCart(models.Model):
                 name='unique_shopping_cart'
             )
         ]
+        default_related_name = 'shopping_cart'
 
     def __str__(self):
         """Строковое представление модели списка покупок."""
