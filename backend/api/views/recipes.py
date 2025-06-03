@@ -147,7 +147,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
               f"{item['total_amount']}" for i, item in enumerate(ingredients)],
             '',
             'Рецепты:',
-            *[f"{i+1}. {recipe.name} (Автор: {recipe.author.username})"
+            *[f'{i+1}. {recipe.name} (Автор: {recipe.author.username})'
               for i, recipe in enumerate(recipes)],
         ])
 

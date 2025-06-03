@@ -165,16 +165,16 @@ class RecipeAdmin(admin.ModelAdmin):
         """Возвращает HTML-список ингредиентов рецепта."""
         ingredients = recipe.ingredients_in_recipes.all()
         if not ingredients:
-            return "Нет ингредиентов"
+            return 'Нет ингредиентов'
 
         ingredients_list = []
         for ingredient_in_recipe in ingredients:
             ingredients_list.append(
-                f"{ingredient_in_recipe.ingredient.name} "
-                f"({ingredient_in_recipe.amount} "
-                f"{ingredient_in_recipe.ingredient.measurement_unit})"
+                f'{ingredient_in_recipe.ingredient.name} '
+                f'({ingredient_in_recipe.amount} '
+                f'{ingredient_in_recipe.ingredient.measurement_unit}) '
             )
-        return "<br>".join(ingredients_list)
+        return '<br>'.join(ingredients_list)
 
     @admin.display(description='Изображение')
     @mark_safe
@@ -182,7 +182,7 @@ class RecipeAdmin(admin.ModelAdmin):
         """Возвращает HTML-разметку с изображением рецепта."""
         if recipe.image:
             return f'<img src="{recipe.image.url}" width="100" height="100" />'
-        return "Нет изображения"
+        return 'Нет изображения'
 
 
 @admin.register(Favorite, ShoppingCart)
