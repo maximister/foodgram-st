@@ -118,28 +118,28 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
             )
         return data
 
-    def validate_image(self, value):
+    def validate_image(self, image):
         """Проверяет изображение."""
-        if not value:
+        if not image:
             raise serializers.ValidationError(
                 'Изображение обязательно.'
             )
-        return value
+        return image
 
-    def validate_ingredients(self, value):
+    def validate_ingredients(self, ingredients):
         """Проверяет ингредиенты."""
-        if not value:
+        if not ingredients:
             raise serializers.ValidationError(
                 'Необходимо указать хотя бы один ингредиент'
             )
 
-        ingredients_ids = [item['id'].id for item in value]
+        ingredients_ids = [item['id'].id for item in ingredients]
         if len(ingredients_ids) != len(set(ingredients_ids)):
             raise serializers.ValidationError(
                 'Ингредиенты не должны повторяться'
             )
 
-        return value
+        return ingredients
 
     def create_ingredients(self, recipe, ingredients_data):
         """Создает записи ингредиентов для рецепта."""
@@ -155,9 +155,9 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """Создает рецепт с ингредиентами."""
         ingredients_data = validated_data.pop('ingredients')
-        
+
         recipe = super().create(validated_data)
-        
+
         self.create_ingredients(recipe, ingredients_data)
         return recipe
 

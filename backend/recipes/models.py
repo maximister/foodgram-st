@@ -81,7 +81,7 @@ class Recipe(models.Model):
 
         verbose_name = 'Рецепт'
         verbose_name_plural = 'Рецепты'
-        ordering = ['-pub_date']
+        ordering = ['-pub_date', 'name']
 
     def __str__(self):
         """Строковое представление модели рецепта."""

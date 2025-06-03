@@ -24,12 +24,13 @@ class RecipeFilter(filters.FilterSet):
     is_in_shopping_cart = filters.BooleanFilter(
         method='filter_is_in_shopping_cart'
     )
+    name = filters.CharFilter(field_name='name', lookup_expr='icontains')
 
     class Meta:
         """Метаданные фильтра."""
 
         model = Recipe
-        fields = ('author', 'is_favorited', 'is_in_shopping_cart')
+        fields = ('author', 'is_favorited', 'is_in_shopping_cart', 'name')
 
     def filter_is_favorited(self, queryset, name, value):
         """Фильтрует рецепты по наличию в избранном."""

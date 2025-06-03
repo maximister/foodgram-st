@@ -2,7 +2,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from djoser.serializers import (
-    UserCreateSerializer as DjoserUserCreateSerializer
+    UserSerializer as DjoserUserSerializer
 )
 
 from users.models import Subscription
@@ -12,12 +12,12 @@ from api.fields import Base64ImageField
 User = get_user_model()
 
 
-class UserSerializer(serializers.ModelSerializer):
+class UserSerializer(DjoserUserSerializer):
     """Сериализатор для модели пользователя чтобы flake8 не ругался."""
 
     is_subscribed = serializers.SerializerMethodField()
 
-    class Meta:
+    class Meta(DjoserUserSerializer.Meta):
         """Мне нечего сказать но flake8 ругается."""
 
         model = User
@@ -30,61 +30,15 @@ class UserSerializer(serializers.ModelSerializer):
             'is_subscribed',
             'avatar',
         )
+        read_only_fields = fields
 
-    def get_is_subscribed(self, obj):
+    def get_is_subscribed(self, author):
         """Проверка, подписан ли текущий пользователь на автора."""
         request = self.context.get('request')
-        if not request or request.user.is_anonymous:
-            return False
-        return Subscription.objects.filter(
-            user=request.user, author=obj
-        ).exists()
-
-    def to_representation(self, instance):
-        """Преобразует URL аватара в абсолютный."""
-        ret = super().to_representation(instance)
-        request = self.context.get('request')
-
-        if instance.avatar and request:
-            ret['avatar'] = request.build_absolute_uri(instance.avatar.url)
-
-        return ret
-
-
-class UserCreateSerializer(DjoserUserCreateSerializer):
-    """Сериализатор для создания пользователя чтобы flake8 не ругался."""
-
-    class Meta:
-        """Метаданные сериализатора чтобы flake8 не ругался."""
-
-        model = User
-        fields = (
-            'email',
-            'id',
-            'username',
-            'first_name',
-            'last_name',
-            'password',
-        )
-        extra_kwargs = {
-            'password': {'write_only': True}
-        }
-
-
-class SetPasswordSerializer(serializers.Serializer):
-    """Сериализатор для изменения пароля чтобы flake8 не ругался."""
-
-    current_password = serializers.CharField(required=True)
-    new_password = serializers.CharField(required=True)
-
-    def validate_current_password(self, value):
-        """Проверка пароля пользователя."""
-        user = self.context['request'].user
-        if not user.check_password(value):
-            raise serializers.ValidationError(
-                'Неверный текущий пароль.'
-            )
-        return value
+        return request and request.user.is_authenticated and \
+            Subscription.objects.filter(
+                user=request.user, author=author
+            ).exists()
 
 
 class SetAvatarSerializer(serializers.ModelSerializer):
@@ -115,13 +69,14 @@ class RecipeShortInfoSerializer(serializers.ModelSerializer):
 
         model = Recipe
         fields = ('id', 'name', 'image', 'cooking_time')
+        read_only_fields = fields
 
 
 class UserWithRecipesSerializer(UserSerializer):
     """Сериализатор для пользователя с рецептами."""
 
     recipes = serializers.SerializerMethodField()
-    recipes_count = serializers.SerializerMethodField()
+    recipes_count = serializers.IntegerField(source='recipes.count')
 
     class Meta(UserSerializer.Meta):
         """Метаданные сериализатора."""
@@ -131,20 +86,10 @@ class UserWithRecipesSerializer(UserSerializer):
             'recipes_count',
         )
 
-    def get_recipes(self, obj):
+    def get_recipes(self, author):
         """Возвращает список рецептов пользователя."""
         request = self.context.get('request')
-        recipes_limit = request.query_params.get('recipes_limit')
-
-        recipes = Recipe.objects.filter(author=obj)
-        if recipes_limit:
-            try:
-                recipes = recipes[:int(recipes_limit)]
-            except ValueError:
-                pass
+        recipes_limit = request.query_params.get('recipes_limit', 10**10)
+        recipes = author.recipes.all()[:int(recipes_limit)]
 
         return RecipeShortInfoSerializer(recipes, many=True).data
-
-    def get_recipes_count(self, obj):
-        """Возвращает количество рецептов пользователя."""
-        return Recipe.objects.filter(author=obj).count()
