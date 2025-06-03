@@ -14,12 +14,11 @@ class User(AbstractUser):
     """Модель пользователя с расширенной функциональностью."""
 
     username = models.CharField(
-        'Имя пользователя',
+        'Никнейм пользователя',
         max_length=USERNAME_MAX_LENGTH,
         unique=True,
         validators=[RegexValidator(
-            regex=USERNAME_REGEX,
-            message='Имя пользователя содержит недопустимые символы'
+            regex=USERNAME_REGEX
         )]
     )
     email = models.EmailField(
@@ -43,14 +42,14 @@ class User(AbstractUser):
     )
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
+    REQUIRED_FIELDS = ('username', 'first_name', 'last_name',)
 
     class Meta:
         """Метаданные модели пользователя."""
 
         verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
-        ordering = ['id']
+        ordering = ('username',)
 
     def __str__(self):
         """Возвращает строковое представление пользователя."""
@@ -69,7 +68,7 @@ class Subscription(models.Model):
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='subscribers',
+        related_name='subscriptions_from_authors',
         verbose_name='Автор',
     )
 
@@ -78,16 +77,16 @@ class Subscription(models.Model):
 
         verbose_name = 'Подписка'
         verbose_name_plural = 'Подписки'
-        constraints = [
+        constraints = (
             models.UniqueConstraint(
-                fields=['user', 'author'],
+                fields=('user', 'author'),
                 name='unique_subscription'
             ),
             models.CheckConstraint(
                 check=~models.Q(user=models.F('author')),
                 name='prevent_self_subscription'
-            )
-        ]
+            ),
+        )
 
     def __str__(self):
         """Возвращает строковое представление подписки."""

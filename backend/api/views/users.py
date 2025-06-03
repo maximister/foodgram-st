@@ -129,7 +129,9 @@ class UserViewSet(DjoserUserViewSet):
     )
     def subscriptions(self, request):
         """Возвращает подписки текущего пользователя."""
-        subscriptions = User.objects.filter(subscribers__user=request.user)
+        subscriptions = User.objects.filter(
+            subscriptions_from_authors__user=request.user
+        )
         paginated_queryset = self.paginate_queryset(subscriptions)
 
         serializer = UserWithRecipesSerializer(

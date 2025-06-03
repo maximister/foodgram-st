@@ -27,12 +27,12 @@ class Ingredient(models.Model):
         verbose_name = 'Ингредиент'
         verbose_name_plural = 'Ингредиенты'
         ordering = ('name',)
-        constraints = [
+        constraints = (
             models.UniqueConstraint(
-                fields=['name', 'measurement_unit'],
+                fields=('name', 'measurement_unit'),
                 name='unique_ingredient'
-            )
-        ]
+            ),
+        )
 
     def __str__(self):
         """Строковое представление модели ингредиента."""
@@ -118,12 +118,12 @@ class IngredientInRecipe(models.Model):
 
         verbose_name = 'Ингредиент в рецепте'
         verbose_name_plural = 'Ингредиенты в рецептах'
-        constraints = [
+        constraints = (
             models.UniqueConstraint(
-                fields=['recipe', 'ingredient'],
+                fields=('recipe', 'ingredient'),
                 name='unique_ingredient_in_recipe'
-            )
-        ]
+            ),
+        )
 
     def __str__(self):
         """Строковое представление модели ингредиента в рецепте."""
@@ -147,15 +147,15 @@ class UserRecipeRelation(models.Model):
 
     class Meta:
         """Метаданные абстрактного класса."""
-        
+
         abstract = True
-        constraints = [
+        constraints = (
             models.UniqueConstraint(
-                fields=['user', 'recipe'],
+                fields=('user', 'recipe'),
                 name='%(app_label)s_%(class)s_unique'
-            )
-        ]
-    
+            ),
+        )
+
     def __str__(self):
         """Строковое представление связи пользователя и рецепта."""
         relation_type = self._meta.verbose_name.lower()
