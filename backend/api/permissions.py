@@ -9,13 +9,6 @@ class IsAuthorOrReadOnly(permissions.BasePermission):
     и лоступ на редактирование автору объекта.
     """
 
-    def has_permission(self, request, view):
-        """Проверяет общие разрешения для представления."""
-        return (
-            request.method in permissions.SAFE_METHODS
-            or request.user.is_authenticated
-        )
-
     def has_object_permission(self, request, view, obj):
         """Проверяет разрешения для конкретного объекта."""
         return (

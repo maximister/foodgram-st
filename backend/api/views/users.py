@@ -11,7 +11,7 @@ from api.serializers.users import (
     UserSerializer, SetAvatarSerializer,
     UserWithRecipesSerializer
 )
-from api.pagination import CustomPagination
+from api.pagination import FoodgramPagination
 from users.models import Subscription
 
 User = get_user_model()
@@ -22,7 +22,7 @@ class UserViewSet(DjoserUserViewSet):
 
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    pagination_class = CustomPagination
+    pagination_class = FoodgramPagination
 
     @action(
         detail=False,

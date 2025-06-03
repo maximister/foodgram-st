@@ -18,7 +18,7 @@ from api.serializers.recipes import (
     RecipeCreateUpdateSerializer, RecipeShortInfoSerializer
 )
 from api.permissions import IsAuthorOrReadOnly
-from api.pagination import CustomPagination
+from api.pagination import FoodgramPagination
 from api.filters import RecipeFilter, IngredientFilter
 
 
@@ -38,7 +38,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     queryset = Recipe.objects.all()
     permission_classes = (IsAuthorOrReadOnly,)
-    pagination_class = CustomPagination
+    pagination_class = FoodgramPagination
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
 
