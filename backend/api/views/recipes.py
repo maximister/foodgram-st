@@ -72,14 +72,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-        relation = model.objects.filter(user=user, recipe=recipe)
-        if not relation.exists():
-            verbose_name = model._meta.verbose_name.lower()
-            return Response(
-                {'errors': f'Рецепт {recipe.name} не найден в {verbose_name}'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
+        relation = get_object_or_404(model, user=user, recipe=recipe)
         relation.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -91,8 +84,12 @@ class RecipeViewSet(viewsets.ModelViewSet):
     )
     def get_link(self, request, pk=None):
         """Формирует короткую ссылку на рецепт."""
-        recipe = get_object_or_404(Recipe, id=pk)
-        url = reverse('recipe-short-link', args=[recipe.id])
+        if not Recipe.objects.filter(id=pk).exists():
+            return Response(
+                {'errors': 'Рецепт не найден'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        url = reverse('recipe-short-link', args=[pk])
         short_link = request.build_absolute_uri(url)
         return Response({'short-link': short_link})
 
@@ -159,3 +156,4 @@ class RecipeViewSet(viewsets.ModelViewSet):
             filename='shopping_list.txt',
             content_type='text/plain; charset=utf-8'
         )
+ 
