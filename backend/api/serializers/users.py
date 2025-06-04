@@ -84,6 +84,7 @@ class UserWithRecipesSerializer(UserSerializer):
             'recipes',
             'recipes_count',
         )
+        read_only_fields = fields
 
     def get_recipes(self, author):
         """Возвращает список рецептов пользователя."""

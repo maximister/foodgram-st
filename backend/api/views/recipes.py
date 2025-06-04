@@ -8,7 +8,6 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from django.urls import reverse
-import io
 
 from recipes.models import (
     Ingredient, Recipe, IngredientInRecipe, Favorite, ShoppingCart
@@ -54,26 +53,28 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     def _handle_recipe_relation(self, request, pk, model):
         """Обрабатывает добавление/удаление рецепта из списка."""
-        recipe = get_object_or_404(Recipe, id=pk)
         user = request.user
 
         if request.method == 'POST':
-            if model.objects.filter(user=user, recipe=recipe).exists():
+            recipe = get_object_or_404(Recipe, id=pk)
+            relation, created = model.objects.get_or_create(
+                user=user, recipe=recipe
+            )
+
+            if not created:
                 verbose_name = model._meta.verbose_name.lower()
+                error = f'Рецепт "{recipe.name}" уже добавлен в {verbose_name}'
                 return Response(
-                    {'errors': f'Рецепт уже добавлен в {verbose_name}'},
+                    {'errors': error},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-
-            relation = model.objects.create(user=user, recipe=recipe)
 
             serializer = RecipeShortInfoSerializer(
                 recipe, context={'request': request}
             )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-        relation = get_object_or_404(model, user=user, recipe=recipe)
-        relation.delete()
+        model.objects.filter(user=user, recipe_id=pk).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(
@@ -86,7 +87,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         """Формирует короткую ссылку на рецепт."""
         if not Recipe.objects.filter(id=pk).exists():
             return Response(
-                {'errors': 'Рецепт не найден'},
+                {'errors': f'Рецепт с ID {pk} не найден'},
                 status=status.HTTP_404_NOT_FOUND
             )
         url = reverse('recipe-short-link', args=[pk])
@@ -122,15 +123,15 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
         user = request.user
         ingredients = IngredientInRecipe.objects.filter(
-            recipe__in_shopping_carts__user=user
+            recipe__shoppingcart__user=user
         ).values(
             'ingredient__name',
             'ingredient__measurement_unit'
-        ).annotate(total_amount=Sum('amount'))
+        ).annotate(total_amount=Sum('amount')).order_by('ingredient__name')
 
         recipes = Recipe.objects.filter(
-            in_shopping_carts__user=user
-        ).select_related('author')
+            shoppingcart__user=user
+        ).select_related('author').order_by('name')
 
         current_date = datetime.now().strftime('%d.%m.%Y %H:%M')
 
@@ -139,20 +140,23 @@ class RecipeViewSet(viewsets.ModelViewSet):
             f'Дата составления: {current_date}',
             '',
             'Продукты:',
-            *[f"{i+1}. {item['ingredient__name'].capitalize()} "
-              f"({item['ingredient__measurement_unit']}) - "
-              f"{item['total_amount']}" for i, item in enumerate(ingredients)],
+            *[
+                f"{i}. {item['ingredient__name'].capitalize()} "
+                f"({item['ingredient__measurement_unit']}) - "
+                f"{item['total_amount']}"
+                for i, item in enumerate(ingredients, start=1)
+            ],
             '',
             'Рецепты:',
-            *[f'{i+1}. {recipe.name} (Автор: {recipe.author.username})'
-              for i, recipe in enumerate(recipes)],
+            *[
+                f'{i}. {recipe.name} (Автор: {recipe.author.username})'
+                for i, recipe in enumerate(recipes, start=1)
+            ],
         ])
 
-        file_buffer = io.BytesIO(shopping_list.encode('utf-8'))
-
         return FileResponse(
-            file_buffer,
+            shopping_list,
             as_attachment=True,
             filename='shopping_list.txt',
-            content_type='text/plain; charset=utf-8'
+            content_type='text/plain'
         )

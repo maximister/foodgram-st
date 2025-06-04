@@ -1,13 +1,13 @@
 """Модели приложения recipes."""
 from django.db import models
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MinValueValidator
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import RegexValidator
 
 from recipes.constants import (
-    MIN_COOKING_TIME, MAX_COOKING_TIME, MIN_INGREDIENT_AMOUNT, MAX_NAME_LENGTH,
-    COOKING_TIME_ERROR, MAX_COOKING_TIME_ERROR, INGREDIENT_AMOUNT_ERROR,
-    USERNAME_MAX_LENGTH, EMAIL_MAX_LENGTH, FIRST_NAME_MAX_LENGTH,
+    MIN_COOKING_TIME, MIN_INGREDIENT_AMOUNT, MAX_NAME_LENGTH,
+    COOKING_TIME_ERROR, INGREDIENT_AMOUNT_ERROR, USERNAME_MAX_LENGTH,
+    EMAIL_MAX_LENGTH, FIRST_NAME_MAX_LENGTH,
     LAST_NAME_MAX_LENGTH, USERNAME_REGEX
 )
 
@@ -16,7 +16,7 @@ class User(AbstractUser):
     """Модель пользователя с расширенной функциональностью."""
 
     username = models.CharField(
-        'Никнейм пользователя',
+        'Никнейм',
         max_length=USERNAME_MAX_LENGTH,
         unique=True,
         validators=[RegexValidator(
@@ -114,9 +114,6 @@ class Recipe(models.Model):
         validators=[
             MinValueValidator(
                 MIN_COOKING_TIME, message=COOKING_TIME_ERROR
-            ),
-            MaxValueValidator(
-                MAX_COOKING_TIME, message=MAX_COOKING_TIME_ERROR
             )
         ]
     )
@@ -150,7 +147,6 @@ class IngredientInRecipe(models.Model):
         Recipe,
         on_delete=models.CASCADE,
         verbose_name='Рецепт',
-        related_name='ingredients_in_recipes'
     )
     ingredient = models.ForeignKey(
         Ingredient,
@@ -169,6 +165,7 @@ class IngredientInRecipe(models.Model):
 
         verbose_name = 'Ингредиент в рецепте'
         verbose_name_plural = 'Ингредиенты в рецептах'
+        default_related_name = 'ingredients_in_recipes'
         constraints = (
             models.UniqueConstraint(
                 fields=('recipe', 'ingredient'),
@@ -200,6 +197,7 @@ class UserRecipeRelation(models.Model):
         """Метаданные абстрактного класса."""
 
         abstract = True
+        default_related_name = '%(class)s'
         constraints = (
             models.UniqueConstraint(
                 fields=('user', 'recipe'),
@@ -222,7 +220,6 @@ class Favorite(UserRecipeRelation):
 
         verbose_name = 'Избранное'
         verbose_name_plural = 'Избранное'
-        default_related_name = 'favorited'
 
 
 class ShoppingCart(UserRecipeRelation):
@@ -233,7 +230,6 @@ class ShoppingCart(UserRecipeRelation):
 
         verbose_name = 'Список покупок'
         verbose_name_plural = 'Списки покупок'
-        default_related_name = 'in_shopping_carts'
 
 
 class Subscription(models.Model):

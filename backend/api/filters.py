@@ -36,12 +36,12 @@ class RecipeFilter(filters.FilterSet):
         """Фильтрует рецепты по наличию в избранном."""
         user = self.request.user
         if value and user.is_authenticated:
-            return recipes.filter(favorited__user=user)
+            return recipes.filter(favorite__user=user)
         return recipes
 
     def filter_is_in_shopping_cart(self, recipes, name, value):
         """Фильтрует рецепты по наличию в списке покупок."""
         user = self.request.user
         if value and user.is_authenticated:
-            return recipes.filter(in_shopping_carts__user=user)
+            return recipes.filter(shoppingcart__user=user)
         return recipes

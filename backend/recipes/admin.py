@@ -20,28 +20,63 @@ class IngredientInRecipeInline(admin.TabularInline):
     extra = EXTRA_INGREDIENT_FORMS
 
 
-class UsedInRecipesFilter(SimpleListFilter):
+class YesNoFilter(SimpleListFilter):
+    """Базовый класс для фильтров с вариантами Да/Нет."""
+
+    lookup_choices = (
+        ('yes', 'Да'),
+        ('no', 'Нет'),
+    )
+
+    title = None
+    parameter_name = None
+    field_path = None
+
+    def lookups(self, request, model_admin):
+        """Возвращает варианты фильтрации."""
+        return self.lookup_choices
+
+    def queryset(self, request, queryset):
+        """Фильтрует объекты в зависимости от выбранного значения."""
+        if self.value() == 'yes':
+            filter_kwargs = {f'{self.field_path}__isnull': False}
+            return queryset.filter(**filter_kwargs).distinct()
+        if self.value() == 'no':
+            filter_kwargs = {f'{self.field_path}__isnull': True}
+            return queryset.filter(**filter_kwargs)
+        return queryset
+
+
+class UsedInRecipesFilter(YesNoFilter):
     """Фильтр для ингредиентов по наличию в рецептах."""
 
     title = 'Есть в рецептах'
     parameter_name = 'in_recipes'
+    field_path = 'recipes'
 
-    def lookups(self, request, model_admin):
-        """Возвращает варианты фильтрации."""
-        return (
-            ('yes', 'Да'),
-            ('no', 'Нет'),
-        )
 
-    def queryset(self, request, ingredients_queryset):
-        """Фильтрует ингредиенты в зависимости от выбранного значения."""
-        if self.value() == 'yes':
-            return (ingredients_queryset
-                    .filter(recipes__isnull=False)
-                    .distinct())
-        if self.value() == 'no':
-            return ingredients_queryset.filter(recipes__isnull=True)
-        return ingredients_queryset
+class HasRecipesFilter(YesNoFilter):
+    """Фильтр для пользователей по наличию рецептов."""
+
+    title = 'Есть рецепты'
+    parameter_name = 'has_recipes'
+    field_path = 'recipes'
+
+
+class HasSubscriptionsFilter(YesNoFilter):
+    """Фильтр для пользователей по наличию подписок."""
+
+    title = 'Есть подписки'
+    parameter_name = 'has_subscriptions'
+    field_path = 'subscriptions'
+
+
+class HasSubscribersFilter(YesNoFilter):
+    """Фильтр для пользователей по наличию подписчиков."""
+
+    title = 'Есть подписчики'
+    parameter_name = 'has_subscribers'
+    field_path = 'subscriptions_from_authors'
 
 
 class CookingTimeFilter(SimpleListFilter):
@@ -57,48 +92,51 @@ class CookingTimeFilter(SimpleListFilter):
             max_time=Max('cooking_time')
         )
 
-        if not stats['min_time'] or not stats['max_time']:
-            return None, None, None
+        unique_times_count = (
+            Recipe.objects
+            .values('cooking_time')
+            .distinct()
+            .count()
+        )
+
+        if unique_times_count < 3:
+            return None
 
         min_time = stats['min_time']
         max_time = stats['max_time']
 
-        if max_time - min_time < 60:
-            fast_threshold = min(30, (min_time + max_time) // 2)
-            medium_threshold = min(60, max_time)
-        else:
-            # При большом разбросе во времени границы вычисляются динамически
-            step = (max_time - min_time) // 3
-            fast_threshold = min_time + step
-            medium_threshold = min_time + 2 * step
+        step = (max_time - min_time) // 3
+        fast_threshold = min_time + step
+        medium_threshold = min_time + 2 * step
 
-        return min_time, fast_threshold, medium_threshold
+        return fast_threshold, medium_threshold
 
     def lookups(self, request, model_admin):
         """Возвращает варианты фильтрации с динамическими порогами."""
-        min_time, fast_threshold, medium_threshold = self._get_thresholds()
+        thresholds = self._get_thresholds()
 
-        if min_time is None:
-            return (
-                ('fast', 'Быстрые (до 30 мин)'),
-                ('medium', 'Средние (до 60 мин)'),
-                ('slow', 'Долгие (более 60 мин)'),
-            )
+        if thresholds is None or len(thresholds) != 2:
+            return ()
+
+        self.fast_threshold, self.medium_threshold = thresholds
 
         fast_count = Recipe.objects.filter(
-            cooking_time__lte=fast_threshold
+            cooking_time__lte=self.fast_threshold
         ).count()
         medium_count = Recipe.objects.filter(
-            cooking_time__gt=fast_threshold,
-            cooking_time__lte=medium_threshold
+            cooking_time__gt=self.fast_threshold,
+            cooking_time__lte=self.medium_threshold
         ).count()
         slow_count = Recipe.objects.filter(
-            cooking_time__gt=medium_threshold
+            cooking_time__gt=self.medium_threshold
         ).count()
 
-        fast_label = f'Быстрые (до {fast_threshold} мин) ({fast_count})'
-        medium_label = f'Средние (до {medium_threshold} мин) ({medium_count})'
-        slow_label = f'Долгие (более {medium_threshold} мин) ({slow_count})'
+        fast_label = (f'Быстрые (до {self.fast_threshold} мин) '
+                      f'({fast_count})')
+        medium_label = (f'Средние (до {self.medium_threshold} мин) '
+                        f'({medium_count})')
+        slow_label = (f'Долгие (более {self.medium_threshold} мин) '
+                      f'({slow_count})')
 
         return (
             ('fast', fast_label),
@@ -111,94 +149,26 @@ class CookingTimeFilter(SimpleListFilter):
         if not self.value():
             return recipes_queryset
 
-        min_time, fast_threshold, medium_threshold = self._get_thresholds()
-
-        if min_time is None:
+        has_fast = hasattr(self, 'fast_threshold')
+        has_medium = hasattr(self, 'medium_threshold')
+        if not has_fast or not has_medium:
             return recipes_queryset
 
         if self.value() == 'fast':
-            return recipes_queryset.filter(cooking_time__lte=fast_threshold)
+            return recipes_queryset.filter(
+                cooking_time__lte=self.fast_threshold
+            )
         elif self.value() == 'medium':
             return recipes_queryset.filter(
-                cooking_time__gt=fast_threshold,
-                cooking_time__lte=medium_threshold
+                cooking_time__gt=self.fast_threshold,
+                cooking_time__lte=self.medium_threshold
             )
         elif self.value() == 'slow':
-            return recipes_queryset.filter(cooking_time__gt=medium_threshold)
+            return recipes_queryset.filter(
+                cooking_time__gt=self.medium_threshold
+            )
 
         return recipes_queryset
-
-
-class HasRecipesFilter(SimpleListFilter):
-    """Фильтр для пользователей по наличию рецептов."""
-
-    title = 'Есть рецепты'
-    parameter_name = 'has_recipes'
-
-    def lookups(self, request, model_admin):
-        """Возвращает варианты фильтрации."""
-        return (
-            ('yes', 'Да'),
-            ('no', 'Нет'),
-        )
-
-    def queryset(self, request, users_queryset):
-        """Фильтрует пользователей в зависимости от выбранного значения."""
-        if self.value() == 'yes':
-            return users_queryset.filter(recipes__isnull=False).distinct()
-        if self.value() == 'no':
-            return users_queryset.filter(recipes__isnull=True)
-        return users_queryset
-
-
-class HasSubscriptionsFilter(SimpleListFilter):
-    """Фильтр для пользователей по наличию подписок."""
-
-    title = 'Есть подписки'
-    parameter_name = 'has_subscriptions'
-
-    def lookups(self, request, model_admin):
-        """Возвращает варианты фильтрации."""
-        return (
-            ('yes', 'Да'),
-            ('no', 'Нет'),
-        )
-
-    def queryset(self, request, users_queryset):
-        """Фильтрует пользователей в зависимости от выбранного значения."""
-        if self.value() == 'yes':
-            return users_queryset.filter(
-                subscriptions__isnull=False
-            ).distinct()
-        if self.value() == 'no':
-            return users_queryset.filter(subscriptions__isnull=True)
-        return users_queryset
-
-
-class HasSubscribersFilter(SimpleListFilter):
-    """Фильтр для пользователей по наличию подписчиков."""
-
-    title = 'Есть подписчики'
-    parameter_name = 'has_subscribers'
-
-    def lookups(self, request, model_admin):
-        """Возвращает варианты фильтрации."""
-        return (
-            ('yes', 'Да'),
-            ('no', 'Нет'),
-        )
-
-    def queryset(self, request, users_queryset):
-        """Фильтрует пользователей в зависимости от выбранного значения."""
-        if self.value() == 'yes':
-            return users_queryset.filter(
-                subscriptions_from_authors__isnull=False
-            ).distinct()
-        if self.value() == 'no':
-            return users_queryset.filter(
-                subscriptions_from_authors__isnull=True
-            )
-        return users_queryset
 
 
 @admin.register(User)
@@ -299,24 +269,18 @@ class RecipeAdmin(admin.ModelAdmin):
     @admin.display(description='В избранном')
     def favorites_count(self, recipe):
         """Возвращает количество добавлений рецепта в избранное."""
-        return recipe.favorited.count()
+        return recipe.favorite.count()
 
     @admin.display(description='Ингредиенты')
     @mark_safe
     def get_ingredients(self, recipe):
         """Возвращает HTML-список ингредиентов рецепта."""
-        ingredients = recipe.ingredients_in_recipes.all()
-        if not ingredients:
-            return 'Нет ингредиентов'
-
-        ingredients_list = []
-        for ingredient_in_recipe in ingredients:
-            ingredients_list.append(
-                f'{ingredient_in_recipe.ingredient.name} '
-                f'({ingredient_in_recipe.amount} '
-                f'{ingredient_in_recipe.ingredient.measurement_unit}) '
-            )
-        return '<br>'.join(ingredients_list)
+        return '<br>'.join(
+            f'{ingredient_in_recipe.ingredient.name} '
+            f'({ingredient_in_recipe.amount} '
+            f'{ingredient_in_recipe.ingredient.measurement_unit})'
+            for ingredient_in_recipe in recipe.ingredients_in_recipes.all()
+        )
 
     @admin.display(description='Изображение')
     @mark_safe
