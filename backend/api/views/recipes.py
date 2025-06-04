@@ -156,4 +156,3 @@ class RecipeViewSet(viewsets.ModelViewSet):
             filename='shopping_list.txt',
             content_type='text/plain; charset=utf-8'
         )
- 
