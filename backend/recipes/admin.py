@@ -275,7 +275,6 @@ class RecipeAdmin(admin.ModelAdmin):
     @mark_safe
     def get_ingredients(self, recipe):
         """Возвращает HTML-список ингредиентов рецепта."""
-
         return '<br>'.join(
             f'{ingredient_in_recipe.ingredient.name} '
             f'({ingredient_in_recipe.amount} '
