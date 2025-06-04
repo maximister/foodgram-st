@@ -5,8 +5,7 @@ from djoser.serializers import (
     UserSerializer as DjoserUserSerializer
 )
 
-from users.models import Subscription
-from recipes.models import Recipe
+from recipes.models import Recipe, Subscription
 from api.fields import Base64ImageField
 
 User = get_user_model()

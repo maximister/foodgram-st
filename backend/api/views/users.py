@@ -12,7 +12,7 @@ from api.serializers.users import (
     UserWithRecipesSerializer
 )
 from api.pagination import FoodgramPagination
-from users.models import Subscription
+from recipes.models import Subscription
 
 User = get_user_model()
 
