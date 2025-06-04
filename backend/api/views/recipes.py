@@ -1,22 +1,24 @@
 """Представления для API рецептов."""
 from django.db.models import Sum
-from django.http import HttpResponse
+from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
+from django.urls import reverse
+import io
 
 from recipes.models import (
     Ingredient, Recipe, IngredientInRecipe, Favorite, ShoppingCart
 )
 from api.serializers.recipes import (
     IngredientSerializer, RecipeListSerializer,
-    RecipeCreateUpdateSerializer, FavoriteSerializer, ShoppingCartSerializer
+    RecipeCreateUpdateSerializer, RecipeShortInfoSerializer
 )
 from api.permissions import IsAuthorOrReadOnly
-from api.pagination import CustomPagination
+from api.pagination import FoodgramPagination
 from api.filters import RecipeFilter, IngredientFilter
 
 
@@ -36,7 +38,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     queryset = Recipe.objects.all()
     permission_classes = (IsAuthorOrReadOnly,)
-    pagination_class = CustomPagination
+    pagination_class = FoodgramPagination
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
 
@@ -50,29 +52,27 @@ class RecipeViewSet(viewsets.ModelViewSet):
         """Создает рецепт с текущим пользователем в качестве автора."""
         serializer.save(author=self.request.user)
 
-    def _handle_recipe_relation(
-        self, request, pk, model, serializer_class, error_message
-    ):
+    def _handle_recipe_relation(self, request, pk, model):
         """Обрабатывает добавление/удаление рецепта из списка."""
         recipe = get_object_or_404(Recipe, id=pk)
         user = request.user
 
         if request.method == 'POST':
-            serializer = serializer_class(
-                data={'user': user.id, 'recipe': recipe.id},
-                context={'request': request}
+            if model.objects.filter(user=user, recipe=recipe).exists():
+                verbose_name = model._meta.verbose_name.lower()
+                return Response(
+                    {'errors': f'Рецепт уже добавлен в {verbose_name}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            relation = model.objects.create(user=user, recipe=recipe)
+
+            serializer = RecipeShortInfoSerializer(
+                recipe, context={'request': request}
             )
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-        if not model.objects.filter(user=user, recipe=recipe).exists():
-            return Response(
-                {'errors': error_message},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        relation = model.objects.get(user=user, recipe=recipe)
+        relation = get_object_or_404(model, user=user, recipe=recipe)
         relation.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -84,9 +84,13 @@ class RecipeViewSet(viewsets.ModelViewSet):
     )
     def get_link(self, request, pk=None):
         """Формирует короткую ссылку на рецепт."""
-        recipe = get_object_or_404(Recipe, id=pk)
-        base_url = request.build_absolute_uri('/').rstrip('/')
-        short_link = f'{base_url}/recipes/{recipe.id}'
+        if not Recipe.objects.filter(id=pk).exists():
+            return Response(
+                {'errors': 'Рецепт не найден'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        url = reverse('recipe-short-link', args=[pk])
+        short_link = request.build_absolute_uri(url)
         return Response({'short-link': short_link})
 
     @action(
@@ -96,10 +100,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     )
     def favorite(self, request, pk=None):
         """Добавляет/удаляет рецепт в избранное."""
-        return self._handle_recipe_relation(
-            request, pk, Favorite, FavoriteSerializer,
-            'Рецепт не найден в избранном'
-        )
+        return self._handle_recipe_relation(request, pk, Favorite)
 
     @action(
         detail=True,
@@ -108,10 +109,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     )
     def shopping_cart(self, request, pk=None):
         """Добавляет/удаляет рецепт в список покупок."""
-        return self._handle_recipe_relation(
-            request, pk, ShoppingCart, ShoppingCartSerializer,
-            'Рецепт не найден в списке покупок'
-        )
+        return self._handle_recipe_relation(request, pk, ShoppingCart)
 
     @action(
         detail=False,
@@ -120,6 +118,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
     )
     def download_shopping_cart(self, request):
         """Скачивает список покупок в формате TXT."""
+        from datetime import datetime
+
         user = request.user
         ingredients = IngredientInRecipe.objects.filter(
             recipe__in_shopping_carts__user=user
@@ -128,16 +128,31 @@ class RecipeViewSet(viewsets.ModelViewSet):
             'ingredient__measurement_unit'
         ).annotate(total_amount=Sum('amount'))
 
-        shopping_list = 'Список покупок:\n\n'
-        for item in ingredients:
-            shopping_list += (
-                f"{item['ingredient__name']} "
-                f"({item['ingredient__measurement_unit']}) - "
-                f"{item['total_amount']}\n"
-            )
+        recipes = Recipe.objects.filter(
+            in_shopping_carts__user=user
+        ).select_related('author')
 
-        response = HttpResponse(shopping_list, content_type='text/plain')
-        response['Content-Disposition'] = (
-            'attachment; filename="shopping_list.txt"'
+        current_date = datetime.now().strftime('%d.%m.%Y %H:%M')
+
+        shopping_list = '\n'.join([
+            f'Список покупок для {user.username}',
+            f'Дата составления: {current_date}',
+            '',
+            'Продукты:',
+            *[f"{i+1}. {item['ingredient__name'].capitalize()} "
+              f"({item['ingredient__measurement_unit']}) - "
+              f"{item['total_amount']}" for i, item in enumerate(ingredients)],
+            '',
+            'Рецепты:',
+            *[f'{i+1}. {recipe.name} (Автор: {recipe.author.username})'
+              for i, recipe in enumerate(recipes)],
+        ])
+
+        file_buffer = io.BytesIO(shopping_list.encode('utf-8'))
+
+        return FileResponse(
+            file_buffer,
+            as_attachment=True,
+            filename='shopping_list.txt',
+            content_type='text/plain; charset=utf-8'
         )
-        return response

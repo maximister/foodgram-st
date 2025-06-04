@@ -1,8 +1,0 @@
-"""Constants for user model field lengths and validation."""
-
-USERNAME_MAX_LENGTH = 150
-EMAIL_MAX_LENGTH = 254
-FIRST_NAME_MAX_LENGTH = 150
-LAST_NAME_MAX_LENGTH = 150
-
-USERNAME_REGEX = r'^[\w.@+-]+$'

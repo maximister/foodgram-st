@@ -4,15 +4,15 @@ from django.shortcuts import get_object_or_404
 from djoser.views import UserViewSet as DjoserUserViewSet
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from api.serializers.users import (
-    UserSerializer, SetPasswordSerializer, SetAvatarSerializer,
+    UserSerializer, SetAvatarSerializer,
     UserWithRecipesSerializer
 )
-from api.pagination import CustomPagination
-from users.models import Subscription
+from api.pagination import FoodgramPagination
+from recipes.models import Subscription
 
 User = get_user_model()
 
@@ -22,13 +22,7 @@ class UserViewSet(DjoserUserViewSet):
 
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    pagination_class = CustomPagination
-
-    def get_permissions(self):
-        """Определяет права доступа для различных действий."""
-        if self.action == 'retrieve' or self.action == 'list':
-            return [AllowAny()]
-        return super().get_permissions()
+    pagination_class = FoodgramPagination
 
     @action(
         detail=False,
@@ -37,26 +31,7 @@ class UserViewSet(DjoserUserViewSet):
     )
     def me(self, request):
         """Возвращает информацию о текущем пользователе."""
-        serializer = self.get_serializer(request.user)
-        return Response(serializer.data)
-
-    @action(
-        detail=False,
-        methods=['post'],
-        permission_classes=[IsAuthenticated]
-    )
-    def set_password(self, request):
-        """Изменяет пароль текущего пользователя."""
-        serializer = SetPasswordSerializer(
-            data=request.data,
-            context={'request': request}
-        )
-        serializer.is_valid(raise_exception=True)
-
-        request.user.set_password(serializer.validated_data['new_password'])
-        request.user.save()
-
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return super().me(request)
 
     @action(
         detail=False,
@@ -122,7 +97,10 @@ class UserViewSet(DjoserUserViewSet):
 
             if not created:
                 return Response(
-                    {'detail': 'Вы уже подписаны на этого автора.'},
+                    {
+                        'detail':
+                        f'Вы уже подписаны на автора {author.username}.'
+                    },
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
@@ -131,16 +109,9 @@ class UserViewSet(DjoserUserViewSet):
             )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-        subscription = Subscription.objects.filter(
-            user=request.user, author=author
+        subscription = get_object_or_404(
+            Subscription, user=request.user, author=author
         )
-
-        if not subscription.exists():
-            return Response(
-                {'detail': 'Вы не подписаны на этого автора.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
         subscription.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -151,7 +122,9 @@ class UserViewSet(DjoserUserViewSet):
     )
     def subscriptions(self, request):
         """Возвращает подписки текущего пользователя."""
-        subscriptions = User.objects.filter(subscribers__user=request.user)
+        subscriptions = User.objects.filter(
+            subscriptions_from_authors__user=request.user
+        )
         paginated_queryset = self.paginate_queryset(subscriptions)
 
         serializer = UserWithRecipesSerializer(
