@@ -2,6 +2,14 @@
 
 Фудграм — сайт, на котором пользователи могут публиковать свои рецепты, добавлять чужие рецепты в избранное и подписываться на публикации других авторов.
 
+## Стэк
+- Python 3.11
+- Django
+- PostgreSQL / sqLITE
+- Docker compose
+- React
+- Nginx
+  
 ## Как запустить?
 
 ### Локальный запуск серверной части
@@ -25,7 +33,6 @@ pip install -r requirements.txt
 ```
 4) Провести миграцию бд:
 ```
-python manage.py makemigration
 python manage.py migrate
 ```
 5) Наполнить бд тестовыми ингредиентами:
@@ -68,4 +75,7 @@ docker-compose up -d
     - удаленно [http://51.250.19.165/api/docs/](http://51.250.19.165/api/docs/)
 - Панель администратора:
     - локально [http://localhost/admin/](http://localhost/admin/)
-    - удаленно [http://51.250.19.165/admin/](http://51.250.19.165/admin/)
+
+## Контакты
+Автор: Ревенко Максим Сергеевич
+Email: [revenkomacsim@yandex.ru](mailto:revenkomacsim@yandex.ru)
