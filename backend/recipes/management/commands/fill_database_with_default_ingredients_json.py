@@ -37,16 +37,9 @@ class Command(BaseCommand):
                 json_file = os.path.join(data_dir, 'ingredients.json')
 
             with open(json_file, 'r', encoding='utf-8') as file:
-                ingredients_data = json.load(file)
                 created = Ingredient.objects.bulk_create(
-                    [
-                        Ingredient(
-                            name=item['name'].strip(),
-                            measurement_unit=item['measurement_unit'].strip()
-                        )
-                        for item in ingredients_data
-                    ],
-                    ignore_conflicts=True
+                    [Ingredient(**item) for item in json.load(file)],
+                    ignore_conflicts=True,
                 )
 
             self.stdout.write(

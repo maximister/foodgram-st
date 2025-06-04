@@ -16,7 +16,7 @@ class User(AbstractUser):
     """Модель пользователя с расширенной функциональностью."""
 
     username = models.CharField(
-        'Никнейм пользователя',
+        'Никнейм',
         max_length=USERNAME_MAX_LENGTH,
         unique=True,
         validators=[RegexValidator(

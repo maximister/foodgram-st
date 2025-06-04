@@ -1,4 +1,5 @@
 """Константы для приложения."""
+# Константы для рецептов
 MIN_COOKING_TIME = 1
 MAX_COOKING_TIME = 525600  # 1 год в минутах
 MIN_INGREDIENT_AMOUNT = 1

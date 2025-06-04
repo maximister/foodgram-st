@@ -45,3 +45,4 @@ class RecipeFilter(filters.FilterSet):
         if value and user.is_authenticated:
             return recipes.filter(in_shopping_carts__user=user)
         return recipes
+ 

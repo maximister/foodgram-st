@@ -62,18 +62,12 @@ class UserViewSet(DjoserUserViewSet):
                 {'avatar': avatar_url},
                 status=status.HTTP_200_OK
             )
-        elif request.method == 'DELETE':
+        if request.method == 'DELETE':
             if request.user.avatar:
                 request.user.avatar.delete()
                 request.user.avatar = None
                 request.user.save()
-
             return Response(status=status.HTTP_204_NO_CONTENT)
-
-        return Response(
-            {'error': 'Метод не поддерживается.'},
-            status=status.HTTP_405_METHOD_NOT_ALLOWED
-        )
 
     @action(
         detail=True,
@@ -82,38 +76,37 @@ class UserViewSet(DjoserUserViewSet):
     )
     def subscribe(self, request, id):
         """Создает или удаляет подписку на автора."""
+        if request.method == 'DELETE':
+            Subscription.objects.filter(
+                user=request.user, author_id=id
+            ).delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
         author = get_object_or_404(User, id=id)
 
-        if request.method == 'POST':
-            if request.user == author:
-                return Response(
-                    {'detail': 'Нельзя подписаться на самого себя.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            subscription, created = Subscription.objects.get_or_create(
-                user=request.user, author=author
+        if request.user == author:
+            return Response(
+                {'detail': 'Нельзя подписаться на самого себя.'},
+                status=status.HTTP_400_BAD_REQUEST
             )
 
-            if not created:
-                return Response(
-                    {
-                        'detail':
-                        f'Вы уже подписаны на автора {author.username}.'
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            serializer = UserWithRecipesSerializer(
-                author, context={'request': request}
-            )
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        subscription = get_object_or_404(
-            Subscription, user=request.user, author=author
+        subscription, created = Subscription.objects.get_or_create(
+            user=request.user, author=author
         )
-        subscription.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+
+        if not created:
+            return Response(
+                {
+                    'detail':
+                    f'Вы уже подписаны на автора {author.username}.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = UserWithRecipesSerializer(
+            author, context={'request': request}
+        )
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(
         detail=False,
